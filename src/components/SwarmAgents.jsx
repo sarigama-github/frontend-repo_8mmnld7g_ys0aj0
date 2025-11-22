@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react'
 // 3D scaffold arcs, and a pulsing coordination core. Adds staged startup: hubs → core →
 // scaffold → nodes/links. Story mode weaves a looping sequence of "architecture layers"
 // that temporarily modulate the network (more links, faster activation, brighter core)
-// and displays a soft caption to narrate what the viewer is seeing.
+// and renders a prominent tag cloud for each beat to narrate what's happening.
 // Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"),
 // parallax {x,y}, story (boolean)
 export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 }, story = true }) {
@@ -48,13 +48,13 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     // Story beats that modulate the system. Each beat contributes ephemeral boosts.
     // We rely on HSL so we can shift hue slightly per beat for a living feel.
     const beats = [
-      { name: 'Intent & Governance', hue: 158, core: 1.00, links: 1.00, spawn: 1.00, caption: 'Intent set. Policies define safe boundaries.' },
-      { name: 'Cognitive Planning', hue: 156, core: 1.05, links: 1.10, spawn: 1.08, caption: 'Agents form a plan and share context.' },
-      { name: 'Memory & Context', hue: 160, core: 1.08, links: 1.12, spawn: 1.15, caption: 'Relevant knowledge floods the graph.' },
-      { name: 'Tooling & Execution', hue: 158, core: 1.12, links: 1.18, spawn: 1.22, caption: 'Execution accelerates with tools.' },
-      { name: 'Agent Runtime', hue: 162, core: 1.15, links: 1.22, spawn: 1.25, caption: 'Distributed runtime coordinates work.' },
-      { name: 'Safety & Operations', hue: 155, core: 1.10, links: 1.08, spawn: 1.00, caption: 'Guardrails monitor and correct.' },
-      { name: 'Evolution & Learning', hue: 166, core: 1.18, links: 1.25, spawn: 1.28, caption: 'System adapts and compounds.' },
+      { name: 'Intent & Governance', hue: 158, core: 1.00, links: 1.00, spawn: 1.00, caption: 'Intent set. Policies define safe boundaries.', tags: ['Intent', 'Governance', 'Guardrails', 'Objectives', 'Scope'] },
+      { name: 'Cognitive Planning', hue: 156, core: 1.05, links: 1.10, spawn: 1.08, caption: 'Agents form a plan and share context.', tags: ['Reasoning', 'Planning', 'Decompose', 'Priorities', 'Coordination'] },
+      { name: 'Memory & Context', hue: 160, core: 1.08, links: 1.12, spawn: 1.15, caption: 'Relevant knowledge floods the graph.', tags: ['Memory', 'RAG', 'Context', 'Grounding', 'Signals'] },
+      { name: 'Tooling & Execution', hue: 158, core: 1.12, links: 1.18, spawn: 1.22, caption: 'Execution accelerates with tools.', tags: ['Tools', 'APIs', 'Actions', 'Orchestration', 'IO'] },
+      { name: 'Agent Runtime', hue: 162, core: 1.15, links: 1.22, spawn: 1.25, caption: 'Distributed runtime coordinates work.', tags: ['Agents', 'Handoffs', 'Concurrency', 'Routing', 'Delegation'] },
+      { name: 'Safety & Operations', hue: 155, core: 1.10, links: 1.08, spawn: 1.00, caption: 'Guardrails monitor and correct.', tags: ['Safety', 'Policies', 'Audit', 'Observability', 'SLAs'] },
+      { name: 'Evolution & Learning', hue: 166, core: 1.18, links: 1.25, spawn: 1.28, caption: 'System adapts and compounds.', tags: ['Learning', 'Feedback', 'Improve', 'Metrics', 'Adaptation'] },
     ]
 
     // Tier influence on story intensity
@@ -105,6 +105,17 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
     // HSL emerald helper with optional hue shift
     const emerald = (alpha, hueShift = 0, light = 55) => `hsla(${158 + hueShift}, 72%, ${light}%, ${alpha})`
+
+    // Accent palette for tag cloud (pink/purple/sky) to contrast the green brand
+    const accent = (alpha, i = 0) => {
+      const palette = [
+        { h: 322, s: 85, l: 62 }, // pink
+        { h: 262, s: 85, l: 72 }, // purple
+        { h: 199, s: 92, l: 68 }, // sky
+      ]
+      const c = palette[i % palette.length]
+      return `hsla(${c.h}, ${c.s}%, ${c.l}%, ${alpha})`
+    }
 
     // draw a subtle scaffold of bezier arcs between hubs
     const drawScaffold = (hubs, time, intensity, hueShift = 0) => {
@@ -187,48 +198,70 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       }
     }
 
-    // caption helper
-    const drawCaption = (text, subText, hueShift = 0, opacity = 1) => {
-      if (!text) return
-      const pad = 10
-      const maxW = Math.min(520, w * 0.6)
-      ctx.save()
-      ctx.globalAlpha = opacity
-      ctx.font = '12px Inter, system-ui, -apple-system, Segoe UI, Roboto'
-      ctx.textBaseline = 'top'
-      ctx.fillStyle = 'rgba(2,6,23,0.85)'
-      // measure and draw background pill
-      const tw = Math.min(ctx.measureText(text).width, maxW)
-      const sh = subText ? 34 : 20
-      const x = 16
-      const y = h - sh - 16
-      // rounded pill
-      const r = 10
-      ctx.beginPath()
-      ctx.moveTo(x + r, y)
-      ctx.lineTo(x + tw + pad * 2 - r, y)
-      ctx.quadraticCurveTo(x + tw + pad * 2, y, x + tw + pad * 2, y + r)
-      ctx.lineTo(x + tw + pad * 2, y + sh - r)
-      ctx.quadraticCurveTo(x + tw + pad * 2, y + sh, x + tw + pad * 2 - r, y + sh)
-      ctx.lineTo(x + r, y + sh)
-      ctx.quadraticCurveTo(x, y + sh, x, y + sh - r)
-      ctx.lineTo(x, y + r)
-      ctx.quadraticCurveTo(x, y, x + r, y)
-      ctx.closePath()
-      ctx.fill()
-      // border
-      ctx.strokeStyle = emerald(0.25, hueShift, 62)
-      ctx.lineWidth = 1
-      ctx.stroke()
+    // Tag cloud renderer (centered, animated, readable)
+    const drawTagCloud = (tags, time, opacity) => {
+      if (!tags || !tags.length || opacity <= 0) return
+      const cx = w * 0.5
+      const cy = h * 0.28 // upper third
+      const radius = Math.min(w, h) * 0.18
 
-      // text
-      ctx.fillStyle = 'rgba(241,245,249,0.95)'
-      ctx.fillText(text, x + pad, y + 6)
-      if (subText) {
-        ctx.fillStyle = emerald(0.85, hueShift, 70)
-        ctx.fillText(subText, x + pad, y + 20)
+      // sizes: emphasize first tags, then vary
+      const sizes = tags.map((_, i) => {
+        if (i === 0) return 28
+        if (i === 1) return 24
+        if (i === 2) return 22
+        return 16 + Math.random() * 4
+      })
+
+      // layout around a circle with slight drift
+      const count = tags.length
+      for (let i = 0; i < count; i++) {
+        const ang = (i / count) * Math.PI * 2 + time * 0.25 * (i % 2 === 0 ? 1 : -1)
+        const r = radius * (0.8 + 0.3 * Math.sin(time * 0.6 + i))
+        const x = cx + Math.cos(ang) * r
+        const y = cy + Math.sin(ang) * r * 0.6
+        const size = sizes[i]
+        const colorIdx = i % 3
+
+        ctx.save()
+        ctx.globalAlpha = 0.15 * opacity
+        // soft backdrop to increase contrast
+        ctx.fillStyle = 'rgba(2,6,23,0.7)'
+        const pad = 8
+        ctx.font = `${size}px Inter, system-ui, -apple-system, Segoe UI, Roboto`
+        const tw = ctx.measureText(tags[i]).width
+        const th = size * 1.3
+        const rx = x - tw / 2 - pad
+        const ry = y - th / 2 + 4
+        const rw = tw + pad * 2
+        const rh = th
+        const rr = 10
+        ctx.beginPath()
+        ctx.moveTo(rx + rr, ry)
+        ctx.lineTo(rx + rw - rr, ry)
+        ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rr)
+        ctx.lineTo(rx + rw, ry + rh - rr)
+        ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rr, ry + rh)
+        ctx.lineTo(rx + rr, ry + rh)
+        ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rr)
+        ctx.lineTo(rx, ry + rr)
+        ctx.quadraticCurveTo(rx, ry, rx + rr, ry)
+        ctx.closePath()
+        ctx.fill()
+        ctx.restore()
+
+        // glow text
+        ctx.save()
+        ctx.globalAlpha = opacity
+        ctx.font = `${size}px Inter, system-ui, -apple-system, Segoe UI, Roboto`
+        ctx.shadowColor = accent(0.9, colorIdx)
+        ctx.shadowBlur = 18
+        ctx.fillStyle = accent(0.95, colorIdx)
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(tags[i], x, y)
+        ctx.restore()
       }
-      ctx.restore()
     }
 
     const step = () => {
@@ -242,9 +275,9 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const scaffoldProgress = ease(clamp01((elapsed - 0.9) / 1.6))
 
       // story modulation (kicks in after initial 1.6s)
-      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0, caption = null, subCaption = null
+      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0, tags = null
       if (story && elapsed > 1.6) {
-        const beatDur = 2.2 // seconds per beat
+        const beatDur = 3.4 // seconds per beat (longer for readability)
         const startOffset = 0.0
         const ti = Math.max(0, elapsed - 1.6 - startOffset)
         const idx = Math.floor(ti / beatDur) % beats.length
@@ -256,8 +289,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         linkMod = 1 + (b.links - 1) * (0.65 + 0.35 * smoothIn) * scale
         spawnMod = 1 + (b.spawn - 1) * (0.65 + 0.35 * smoothIn) * scale
         hueShift = (b.hue - 158)
-        caption = b.name
-        subCaption = b.caption
+        tags = b.tags
       }
 
       // clear with subtle trail for flow
@@ -373,14 +405,15 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       // draw central coordination core last so it sits above scaffold but under nodes
       drawCore(t, corePulse * coreProgress * (story ? coreMod : 1), hueShift)
 
-      // draw caption subtly on top
+      // draw tag cloud on top (prominent, readable)
       if (story && elapsed > 1.6) {
-        // fade captions in/out within each beat
-        const beatDur = 2.2
+        const beatDur = 3.4
         const ti = Math.max(0, elapsed - 1.6)
         const local = (ti % beatDur) / beatDur
-        const fade = local < 0.2 ? ease(local / 0.2) : local > 0.8 ? ease((1 - local) / 0.2) : 1
-        drawCaption(caption, subCaption, hueShift, fade)
+        const fade = local < 0.2 ? ease(local / 0.2) : local > 0.85 ? ease((1 - local) / 0.15) : 1
+        // which beat
+        const idx = Math.floor(ti / beatDur) % beats.length
+        drawTagCloud(beats[idx].tags, t, fade)
       }
 
       rafRef.current = requestAnimationFrame(step)
