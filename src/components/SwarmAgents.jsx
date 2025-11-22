@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from 'react'
 
 // Swarm/agents canvas animation with pseudo-3D depth, hubs, tier-based complexity,
 // 3D scaffold arcs, and a pulsing coordination core. Adds staged startup: hubs → core →
-// scaffold → nodes/links. Story mode weaves a looping sequence of "architecture layers"
-// that temporarily modulate the network (more links, faster activation, brighter core)
-// and renders a prominent tag cloud for each beat to narrate what's happening.
+// scaffold → nodes/links. Story mode weaves a looping sequence of beats that modulate
+// the network AND overlays premium, value-centric KPI beacons to clearly show "what's
+// in it for me" to prospective customers.
 // Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"),
 // parallax {x,y}, story (boolean)
 export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 }, story = true }) {
@@ -45,16 +45,43 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       enterprise: { hubCount: 5, density: 10000, nodeGlow: 0.28, maxConn: 130, corePulse: 1.35 },
     }
 
-    // Story beats that modulate the system. Each beat contributes ephemeral boosts.
-    // We rely on HSL so we can shift hue slightly per beat for a living feel.
+    // Beats with modulation and KPI sets per beat.
     const beats = [
-      { name: 'Intent & Governance', hue: 158, core: 1.00, links: 1.00, spawn: 1.00, caption: 'Intent set. Policies define safe boundaries.', tags: ['Intent', 'Governance', 'Guardrails', 'Objectives', 'Scope'] },
-      { name: 'Cognitive Planning', hue: 156, core: 1.05, links: 1.10, spawn: 1.08, caption: 'Agents form a plan and share context.', tags: ['Reasoning', 'Planning', 'Decompose', 'Priorities', 'Coordination'] },
-      { name: 'Memory & Context', hue: 160, core: 1.08, links: 1.12, spawn: 1.15, caption: 'Relevant knowledge floods the graph.', tags: ['Memory', 'RAG', 'Context', 'Grounding', 'Signals'] },
-      { name: 'Tooling & Execution', hue: 158, core: 1.12, links: 1.18, spawn: 1.22, caption: 'Execution accelerates with tools.', tags: ['Tools', 'APIs', 'Actions', 'Orchestration', 'IO'] },
-      { name: 'Agent Runtime', hue: 162, core: 1.15, links: 1.22, spawn: 1.25, caption: 'Distributed runtime coordinates work.', tags: ['Agents', 'Handoffs', 'Concurrency', 'Routing', 'Delegation'] },
-      { name: 'Safety & Operations', hue: 155, core: 1.10, links: 1.08, spawn: 1.00, caption: 'Guardrails monitor and correct.', tags: ['Safety', 'Policies', 'Audit', 'Observability', 'SLAs'] },
-      { name: 'Evolution & Learning', hue: 166, core: 1.18, links: 1.25, spawn: 1.28, caption: 'System adapts and compounds.', tags: ['Learning', 'Feedback', 'Improve', 'Metrics', 'Adaptation'] },
+      { name: 'Intent & Governance', hue: 158, core: 1.00, links: 1.00, spawn: 1.00, kpis: [
+        { label: 'Policy coverage', value: '100%' },
+        { label: 'Risky ops blocked', value: '-37%' },
+        { label: 'Approval latency', value: '-42%' },
+      ]},
+      { name: 'Cognitive Planning', hue: 156, core: 1.05, links: 1.10, spawn: 1.08, kpis: [
+        { label: 'Decomposition speed', value: '+68%' },
+        { label: 'Plan coherence', value: '+35%' },
+        { label: 'Handoff errors', value: '-54%' },
+      ]},
+      { name: 'Memory & Context', hue: 160, core: 1.08, links: 1.12, spawn: 1.15, kpis: [
+        { label: 'Retrieval precision', value: '+22%' },
+        { label: 'Context window', value: '80k' },
+        { label: 'Duped work', value: '-41%' },
+      ]},
+      { name: 'Tooling & Execution', hue: 158, core: 1.12, links: 1.18, spawn: 1.22, kpis: [
+        { label: 'Tasks automated', value: '+48' },
+        { label: 'Lead time', value: '-36%' },
+        { label: 'PR throughput', value: '+95' },
+      ]},
+      { name: 'Agent Runtime', hue: 162, core: 1.15, links: 1.22, spawn: 1.25, kpis: [
+        { label: 'Concurrent agents', value: '32' },
+        { label: 'Throughput', value: '+120%' },
+        { label: 'SLO adherence', value: '99.9%' },
+      ]},
+      { name: 'Safety & Operations', hue: 155, core: 1.10, links: 1.08, spawn: 1.00, kpis: [
+        { label: 'Incidents', value: '-62%' },
+        { label: 'Audit trails', value: '100%' },
+        { label: 'Policy hits', value: '1.2k' },
+      ]},
+      { name: 'Evolution & Learning', hue: 166, core: 1.18, links: 1.25, spawn: 1.28, kpis: [
+        { label: 'Cycle time', value: '-52%' },
+        { label: 'Win rate', value: '+27%' },
+        { label: 'Cost / task', value: '-38%' },
+      ]},
     ]
 
     // Tier influence on story intensity
@@ -106,7 +133,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     // HSL emerald helper with optional hue shift
     const emerald = (alpha, hueShift = 0, light = 55) => `hsla(${158 + hueShift}, 72%, ${light}%, ${alpha})`
 
-    // Accent palette for tag cloud (pink/purple/sky) to contrast the green brand
+    // Accent palette for KPI beacon borders/text
     const accent = (alpha, i = 0) => {
       const palette = [
         { h: 322, s: 85, l: 62 }, // pink
@@ -198,70 +225,62 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       }
     }
 
-    // Tag cloud renderer (centered, animated, readable)
-    const drawTagCloud = (tags, time, opacity) => {
-      if (!tags || !tags.length || opacity <= 0) return
-      const cx = w * 0.5
-      const cy = h * 0.28 // upper third
-      const radius = Math.min(w, h) * 0.18
+    // KPI Beacon cards: glassy plaques with glowing gradient numbers
+    const drawKPIBeacons = (kpis, time, opacity) => {
+      if (!kpis || kpis.length === 0 || opacity <= 0) return
+      const baseX = w * 0.62 // right half, near animation
+      const baseY = h * 0.18 // upper area for prominence
 
-      // sizes: emphasize first tags, then vary
-      const sizes = tags.map((_, i) => {
-        if (i === 0) return 28
-        if (i === 1) return 24
-        if (i === 2) return 22
-        return 16 + Math.random() * 4
-      })
+      kpis.slice(0,3).forEach((k, i) => {
+        const x = baseX + Math.sin(time * (0.7 + i * 0.2) + i) * 18 * (i + 1)
+        const y = baseY + i * 74 + Math.cos(time * (0.6 + i * 0.25)) * 6
+        const width = Math.min(280, Math.max(200, w * 0.22))
+        const height = 56
+        const r = 14
 
-      // layout around a circle with slight drift
-      const count = tags.length
-      for (let i = 0; i < count; i++) {
-        const ang = (i / count) * Math.PI * 2 + time * 0.25 * (i % 2 === 0 ? 1 : -1)
-        const r = radius * (0.8 + 0.3 * Math.sin(time * 0.6 + i))
-        const x = cx + Math.cos(ang) * r
-        const y = cy + Math.sin(ang) * r * 0.6
-        const size = sizes[i]
-        const colorIdx = i % 3
-
+        // card background
         ctx.save()
-        ctx.globalAlpha = 0.15 * opacity
-        // soft backdrop to increase contrast
-        ctx.fillStyle = 'rgba(2,6,23,0.7)'
-        const pad = 8
-        ctx.font = `${size}px Inter, system-ui, -apple-system, Segoe UI, Roboto`
-        const tw = ctx.measureText(tags[i]).width
-        const th = size * 1.3
-        const rx = x - tw / 2 - pad
-        const ry = y - th / 2 + 4
-        const rw = tw + pad * 2
-        const rh = th
-        const rr = 10
+        ctx.globalAlpha = 0.9 * opacity
         ctx.beginPath()
-        ctx.moveTo(rx + rr, ry)
-        ctx.lineTo(rx + rw - rr, ry)
-        ctx.quadraticCurveTo(rx + rw, ry, rx + rw, ry + rr)
-        ctx.lineTo(rx + rw, ry + rh - rr)
-        ctx.quadraticCurveTo(rx + rw, ry + rh, rx + rw - rr, ry + rh)
-        ctx.lineTo(rx + rr, ry + rh)
-        ctx.quadraticCurveTo(rx, ry + rh, rx, ry + rh - rr)
-        ctx.lineTo(rx, ry + rr)
-        ctx.quadraticCurveTo(rx, ry, rx + rr, ry)
+        ctx.moveTo(x + r, y)
+        ctx.lineTo(x + width - r, y)
+        ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+        ctx.lineTo(x + width, y + height - r)
+        ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+        ctx.lineTo(x + r, y + height)
+        ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+        ctx.lineTo(x, y + r)
+        ctx.quadraticCurveTo(x, y, x + r, y)
         ctx.closePath()
+
+        // glass fill
+        const glass = ctx.createLinearGradient(x, y, x, y + height)
+        glass.addColorStop(0, 'rgba(2,6,23,0.85)')
+        glass.addColorStop(1, 'rgba(2,6,23,0.65)')
+        ctx.fillStyle = glass
         ctx.fill()
+
+        // border glow with accent
+        ctx.shadowColor = accent(0.8, i)
+        ctx.shadowBlur = 20
+        ctx.lineWidth = 1
+        ctx.strokeStyle = accent(0.8, i)
+        ctx.stroke()
         ctx.restore()
 
-        // glow text
+        // number + label
         ctx.save()
         ctx.globalAlpha = opacity
-        ctx.font = `${size}px Inter, system-ui, -apple-system, Segoe UI, Roboto`
-        ctx.shadowColor = accent(0.9, colorIdx)
-        ctx.shadowBlur = 18
-        ctx.fillStyle = accent(0.95, colorIdx)
-        ctx.textAlign = 'center'
+        ctx.font = '700 22px Inter, system-ui, -apple-system, Segoe UI, Roboto'
+        ctx.fillStyle = accent(0.95, i)
         ctx.textBaseline = 'middle'
-        ctx.fillText(tags[i], x, y)
+        ctx.fillText(k.value, x + 16, y + height / 2)
+
+        ctx.font = '500 12px Inter, system-ui, -apple-system, Segoe UI, Roboto'
+        ctx.fillStyle = 'rgba(226,232,240,0.9)'
+        ctx.fillText(k.label, x + 16 + ctx.measureText(k.value).width + 10, y + height / 2)
         ctx.restore()
-      }
+      })
     }
 
     const step = () => {
@@ -275,21 +294,22 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const scaffoldProgress = ease(clamp01((elapsed - 0.9) / 1.6))
 
       // story modulation (kicks in after initial 1.6s)
-      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0, tags = null
+      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0, kpis = null
+      let beatIdx = 0, local = 0
       if (story && elapsed > 1.6) {
-        const beatDur = 3.4 // seconds per beat (longer for readability)
+        const beatDur = 3.6 // longer for readability
         const startOffset = 0.0
         const ti = Math.max(0, elapsed - 1.6 - startOffset)
-        const idx = Math.floor(ti / beatDur) % beats.length
-        const localT = (ti % beatDur) / beatDur // 0..1 in-beat
-        const smoothIn = ease(Math.min(localT * 2, 1))
-        const b = beats[idx]
+        beatIdx = Math.floor(ti / beatDur) % beats.length
+        local = (ti % beatDur) / beatDur // 0..1 in-beat
+        const smoothIn = ease(Math.min(local * 2, 1))
+        const b = beats[beatIdx]
         const scale = tierStoryBoost[tier] || 1
         coreMod = 1 + (b.core - 1) * (0.65 + 0.35 * smoothIn) * scale
         linkMod = 1 + (b.links - 1) * (0.65 + 0.35 * smoothIn) * scale
         spawnMod = 1 + (b.spawn - 1) * (0.65 + 0.35 * smoothIn) * scale
         hueShift = (b.hue - 158)
-        tags = b.tags
+        kpis = b.kpis
       }
 
       // clear with subtle trail for flow
@@ -405,15 +425,14 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       // draw central coordination core last so it sits above scaffold but under nodes
       drawCore(t, corePulse * coreProgress * (story ? coreMod : 1), hueShift)
 
-      // draw tag cloud on top (prominent, readable)
+      // KPI Beacons (prominent, readable, value-forward)
       if (story && elapsed > 1.6) {
-        const beatDur = 3.4
+        const beatDur = 3.6
         const ti = Math.max(0, elapsed - 1.6)
         const local = (ti % beatDur) / beatDur
         const fade = local < 0.2 ? ease(local / 0.2) : local > 0.85 ? ease((1 - local) / 0.15) : 1
-        // which beat
         const idx = Math.floor(ti / beatDur) % beats.length
-        drawTagCloud(beats[idx].tags, t, fade)
+        drawKPIBeacons(beats[idx].kpis, t, fade)
       }
 
       rafRef.current = requestAnimationFrame(step)
