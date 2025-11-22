@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react'
 // Enhanced swarm/agents canvas animation with pseudo-3D depth, hubs, tier-based complexity,
 // plus a 3D network scaffold (bezier arcs + depth blur) and a central coordination core
 // that pulses stronger as tiers increase. Adds staged startup: hubs, core, scaffold, then nodes/links
-// fade in sequentially for a dramatic entrance, with tier-driven timing (enterprise = longer, more epic).
+// fade in sequentially for a dramatic entrance.
 // Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"), parallax {x,y}
 export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 } }) {
   const canvasRef = useRef(null)
@@ -38,9 +38,9 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     window.addEventListener('resize', onResize)
 
     const tierConfig = {
-      small: { hubCount: 3, density: 13000, nodeGlow: 0.18, maxConn: 95, corePulse: 0.7, timingScale: 0.9 },
-      medium: { hubCount: 4, density: 12000, nodeGlow: 0.22, maxConn: 110, corePulse: 1.0, timingScale: 1.0 },
-      enterprise: { hubCount: 5, density: 10000, nodeGlow: 0.28, maxConn: 130, corePulse: 1.35, timingScale: 1.25 },
+      small: { hubCount: 3, density: 13000, nodeGlow: 0.18, maxConn: 95, corePulse: 0.7 },
+      medium: { hubCount: 4, density: 12000, nodeGlow: 0.22, maxConn: 110, corePulse: 1.0 },
+      enterprise: { hubCount: 5, density: 10000, nodeGlow: 0.28, maxConn: 130, corePulse: 1.35 },
     }
 
     const init = () => {
@@ -48,7 +48,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const count = Math.floor((w * h) / tcfg.density) + 80
       const nodes = tcfg.hubCount
       const s = speed === 'fast' ? 1.6 : speed === 'calm' ? 0.7 : 1.0
-      cfgRef.current = { count, nodes, s, nodeGlow: tcfg.nodeGlow, maxConn: tcfg.maxConn, corePulse: tcfg.corePulse, timingScale: tcfg.timingScale }
+      cfgRef.current = { count, nodes, s, nodeGlow: tcfg.nodeGlow, maxConn: tcfg.maxConn, corePulse: tcfg.corePulse }
 
       // initialize hubs with depth layers
       const hubs = new Array(nodes).fill(0).map((_, i) => ({
@@ -101,7 +101,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           const normalX = -dy / (dist || 1)
           const normalY = dx / (dist || 1)
           const wobble = Math.sin(time * 1.6 + i * 0.9 + j * 0.6)
-          const bulge = Math.min(120, 40 + dist * 0.08) * (0.6 + intensity * 0.5)
+          const bulge = Math.min(120, 40 + dist * 0.08)
           const cx = midx + normalX * bulge * (0.6 + 0.4 * wobble)
           const cy = midy + normalY * bulge * (0.6 + 0.4 * wobble)
 
@@ -111,7 +111,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           ctx.beginPath()
           ctx.moveTo(a.x, a.y)
           ctx.quadraticCurveTo(cx, cy, b.x, b.y)
-          const alpha = 0.05 + z * 0.08 * (0.8 + intensity * 0.6)
+          const alpha = 0.05 + z * 0.08
           ctx.strokeStyle = `rgba(16,185,129,${alpha})`
           ctx.lineWidth = 1 + z * 1.2
           ctx.shadowColor = 'rgba(16,185,129,0.35)'
@@ -166,16 +166,14 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     }
 
     const step = () => {
-      const { hubs, s, nodeGlow, maxConn, corePulse, timingScale } = cfgRef.current
+      const { hubs, s, nodeGlow, maxConn, corePulse } = cfgRef.current
       t += 0.005 * s
 
       // elapsed time in seconds since init for staged startup
       const elapsed = (performance.now() - startTsRef.current) / 1000
-      // tier-driven timing: enterprise holds each stage longer for a bigger crescendo
-      const tg = timingScale || 1.0
-      const hubProgress = ease(clamp01((elapsed - 0.2 * tg) / (1.0 * tg)))
-      const coreProgress = ease(clamp01((elapsed - 0.5 * tg) / (1.0 * tg)))
-      const scaffoldProgress = ease(clamp01((elapsed - 0.9 * tg) / (1.6 * tg)))
+      const hubProgress = ease(clamp01((elapsed - 0.2) / 1.0))
+      const coreProgress = ease(clamp01((elapsed - 0.5) / 1.0))
+      const scaffoldProgress = ease(clamp01((elapsed - 0.9) / 1.6))
 
       // clear with subtle trail for flow
       const bgAlpha = 0.08
@@ -216,8 +214,8 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       // update agents with activation
       agentsRef.current.forEach((a) => {
-        // activation based on individual delay (scale delays by tier timing)
-        const act = ease(clamp01((elapsed - a.delay * tg) / (0.9 * tg)))
+        // activation based on individual delay
+        const act = ease(clamp01((elapsed - a.delay) / 0.9))
         a.act = act
         const hub = hubs[a.hub]
         const depth = a.z
