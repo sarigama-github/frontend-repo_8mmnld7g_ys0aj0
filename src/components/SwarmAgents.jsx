@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react'
 
-// Enhanced swarm/agents canvas animation with pseudo-3D depth, hubs, tier-based complexity,
-// plus a 3D network scaffold (bezier arcs + depth blur) and a central coordination core
-// that pulses stronger as tiers increase. Adds staged startup: hubs, core, scaffold, then nodes/links
-// fade in sequentially for a dramatic entrance.
-// Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"), parallax {x,y}
-export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 } }) {
+// Swarm/agents canvas animation with pseudo-3D depth, hubs, tier-based complexity,
+// 3D scaffold arcs, and a pulsing coordination core. Adds staged startup: hubs → core →
+// scaffold → nodes/links. Story mode weaves a looping sequence of "architecture layers"
+// that temporarily modulate the network (more links, faster activation, brighter core)
+// and displays a soft caption to narrate what the viewer is seeing.
+// Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"),
+// parallax {x,y}, story (boolean)
+export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 }, story = true }) {
   const canvasRef = useRef(null)
   const rafRef = useRef(0)
   const agentsRef = useRef([])
@@ -41,6 +43,25 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       small: { hubCount: 3, density: 13000, nodeGlow: 0.18, maxConn: 95, corePulse: 0.7 },
       medium: { hubCount: 4, density: 12000, nodeGlow: 0.22, maxConn: 110, corePulse: 1.0 },
       enterprise: { hubCount: 5, density: 10000, nodeGlow: 0.28, maxConn: 130, corePulse: 1.35 },
+    }
+
+    // Story beats that modulate the system. Each beat contributes ephemeral boosts.
+    // We rely on HSL so we can shift hue slightly per beat for a living feel.
+    const beats = [
+      { name: 'Intent & Governance', hue: 158, core: 1.00, links: 1.00, spawn: 1.00, caption: 'Intent set. Policies define safe boundaries.' },
+      { name: 'Cognitive Planning', hue: 156, core: 1.05, links: 1.10, spawn: 1.08, caption: 'Agents form a plan and share context.' },
+      { name: 'Memory & Context', hue: 160, core: 1.08, links: 1.12, spawn: 1.15, caption: 'Relevant knowledge floods the graph.' },
+      { name: 'Tooling & Execution', hue: 158, core: 1.12, links: 1.18, spawn: 1.22, caption: 'Execution accelerates with tools.' },
+      { name: 'Agent Runtime', hue: 162, core: 1.15, links: 1.22, spawn: 1.25, caption: 'Distributed runtime coordinates work.' },
+      { name: 'Safety & Operations', hue: 155, core: 1.10, links: 1.08, spawn: 1.00, caption: 'Guardrails monitor and correct.' },
+      { name: 'Evolution & Learning', hue: 166, core: 1.18, links: 1.25, spawn: 1.28, caption: 'System adapts and compounds.' },
+    ]
+
+    // Tier influence on story intensity
+    const tierStoryBoost = {
+      small: 0.9,
+      medium: 1.0,
+      enterprise: 1.15,
     }
 
     const init = () => {
@@ -82,8 +103,11 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     const clamp01 = (v) => Math.max(0, Math.min(1, v))
     const ease = (p) => p * p * (3 - 2 * p) // smoothstep-like
 
+    // HSL emerald helper with optional hue shift
+    const emerald = (alpha, hueShift = 0, light = 55) => `hsla(${158 + hueShift}, 72%, ${light}%, ${alpha})`
+
     // draw a subtle scaffold of bezier arcs between hubs
-    const drawScaffold = (hubs, time, intensity) => {
+    const drawScaffold = (hubs, time, intensity, hueShift = 0) => {
       if (!hubs || hubs.length < 2 || intensity <= 0.001) return
       const maxPairs = Math.min(6 + Math.floor(intensity * 4), (hubs.length * (hubs.length - 1)) / 2)
       let drawn = 0
@@ -97,7 +121,6 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           const dx = b.x - a.x
           const dy = b.y - a.y
           const dist = Math.hypot(dx, dy)
-          // control point offset creates a soft arc, animated by time
           const normalX = -dy / (dist || 1)
           const normalY = dx / (dist || 1)
           const wobble = Math.sin(time * 1.6 + i * 0.9 + j * 0.6)
@@ -105,16 +128,15 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           const cx = midx + normalX * bulge * (0.6 + 0.4 * wobble)
           const cy = midy + normalY * bulge * (0.6 + 0.4 * wobble)
 
-          // depth-aware blur based on hub depths
           const z = (a.z + b.z) / 2
           ctx.save()
           ctx.beginPath()
           ctx.moveTo(a.x, a.y)
           ctx.quadraticCurveTo(cx, cy, b.x, b.y)
           const alpha = 0.05 + z * 0.08
-          ctx.strokeStyle = `rgba(16,185,129,${alpha})`
+          ctx.strokeStyle = emerald(alpha, hueShift)
           ctx.lineWidth = 1 + z * 1.2
-          ctx.shadowColor = 'rgba(16,185,129,0.35)'
+          ctx.shadowColor = emerald(0.35, hueShift)
           ctx.shadowBlur = 6 + 10 * z
           ctx.stroke()
           ctx.restore()
@@ -123,9 +145,9 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     }
 
     // central coordination core pulse
-    const drawCore = (time, intensity) => {
+    const drawCore = (time, intensity, hueShift = 0) => {
       if (intensity <= 0.001) return
-      const cx = w * 0.36 // slightly left of center so content overlay feels balanced
+      const cx = w * 0.36
       const cy = h * 0.48
       const baseR = Math.min(w, h) * 0.08
       const pulse = (Math.sin(time * 2.1) + 1) / 2 // 0..1
@@ -133,7 +155,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       // radial glow
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.2)
-      grad.addColorStop(0, `rgba(16,185,129,${0.10 * intensity})`)
+      grad.addColorStop(0, emerald(0.10 * intensity, hueShift))
       grad.addColorStop(1, 'rgba(16,185,129,0)')
       ctx.fillStyle = grad
       ctx.beginPath()
@@ -142,7 +164,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       // inner core
       const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-      innerGrad.addColorStop(0, `rgba(16,185,129,${0.25 + 0.25 * pulse * intensity})`)
+      innerGrad.addColorStop(0, emerald(0.25 + 0.25 * pulse * intensity, hueShift))
       innerGrad.addColorStop(1, 'rgba(16,185,129,0)')
       ctx.fillStyle = innerGrad
       ctx.beginPath()
@@ -157,12 +179,56 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         const sweep = Math.PI * (0.6 + 0.15 * i)
         ctx.save()
         ctx.beginPath()
-        ctx.strokeStyle = `rgba(16,185,129,${0.18 - i * 0.04})`
+        ctx.strokeStyle = emerald(0.18 - i * 0.04, hueShift)
         ctx.lineWidth = 1.2
         ctx.arc(cx, cy, rr, start, start + sweep)
         ctx.stroke()
         ctx.restore()
       }
+    }
+
+    // caption helper
+    const drawCaption = (text, subText, hueShift = 0, opacity = 1) => {
+      if (!text) return
+      const pad = 10
+      const maxW = Math.min(520, w * 0.6)
+      ctx.save()
+      ctx.globalAlpha = opacity
+      ctx.font = '12px Inter, system-ui, -apple-system, Segoe UI, Roboto'
+      ctx.textBaseline = 'top'
+      ctx.fillStyle = 'rgba(2,6,23,0.85)'
+      // measure and draw background pill
+      const tw = Math.min(ctx.measureText(text).width, maxW)
+      const sh = subText ? 34 : 20
+      const x = 16
+      const y = h - sh - 16
+      // rounded pill
+      const r = 10
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.lineTo(x + tw + pad * 2 - r, y)
+      ctx.quadraticCurveTo(x + tw + pad * 2, y, x + tw + pad * 2, y + r)
+      ctx.lineTo(x + tw + pad * 2, y + sh - r)
+      ctx.quadraticCurveTo(x + tw + pad * 2, y + sh, x + tw + pad * 2 - r, y + sh)
+      ctx.lineTo(x + r, y + sh)
+      ctx.quadraticCurveTo(x, y + sh, x, y + sh - r)
+      ctx.lineTo(x, y + r)
+      ctx.quadraticCurveTo(x, y, x + r, y)
+      ctx.closePath()
+      ctx.fill()
+      // border
+      ctx.strokeStyle = emerald(0.25, hueShift, 62)
+      ctx.lineWidth = 1
+      ctx.stroke()
+
+      // text
+      ctx.fillStyle = 'rgba(241,245,249,0.95)'
+      ctx.fillText(text, x + pad, y + 6)
+      if (subText) {
+        ctx.fillStyle = emerald(0.85, hueShift, 70)
+        ctx.fillText(subText, x + pad, y + 20)
+      }
+      ctx.restore()
     }
 
     const step = () => {
@@ -174,6 +240,25 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const hubProgress = ease(clamp01((elapsed - 0.2) / 1.0))
       const coreProgress = ease(clamp01((elapsed - 0.5) / 1.0))
       const scaffoldProgress = ease(clamp01((elapsed - 0.9) / 1.6))
+
+      // story modulation (kicks in after initial 1.6s)
+      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0, caption = null, subCaption = null
+      if (story && elapsed > 1.6) {
+        const beatDur = 2.2 // seconds per beat
+        const startOffset = 0.0
+        const ti = Math.max(0, elapsed - 1.6 - startOffset)
+        const idx = Math.floor(ti / beatDur) % beats.length
+        const localT = (ti % beatDur) / beatDur // 0..1 in-beat
+        const smoothIn = ease(Math.min(localT * 2, 1))
+        const b = beats[idx]
+        const scale = tierStoryBoost[tier] || 1
+        coreMod = 1 + (b.core - 1) * (0.65 + 0.35 * smoothIn) * scale
+        linkMod = 1 + (b.links - 1) * (0.65 + 0.35 * smoothIn) * scale
+        spawnMod = 1 + (b.spawn - 1) * (0.65 + 0.35 * smoothIn) * scale
+        hueShift = (b.hue - 158)
+        caption = b.name
+        subCaption = b.caption
+      }
 
       // clear with subtle trail for flow
       const bgAlpha = 0.08
@@ -191,7 +276,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       hubs.forEach((hub) => {
         const r = hub.r * (0.8 + hub.z * 0.4)
         const grad = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, r)
-        grad.addColorStop(0, `rgba(16,185,129,${nodeGlow * hubProgress})`)
+        grad.addColorStop(0, emerald(nodeGlow * hubProgress * 1.0, hueShift))
         grad.addColorStop(1, 'rgba(16,185,129,0)')
         ctx.fillStyle = grad
         ctx.beginPath()
@@ -210,12 +295,11 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       }
 
       // subtle network scaffold connecting hubs (staged in)
-      drawScaffold(hubs, t * (1.1 + 0.2 * s), corePulse * scaffoldProgress)
+      drawScaffold(hubs, t * (1.1 + 0.2 * s), corePulse * scaffoldProgress * (story ? 0.9 * linkMod : 1), hueShift)
 
-      // update agents with activation
+      // update agents with activation + story spawn modulation
       agentsRef.current.forEach((a) => {
-        // activation based on individual delay
-        const act = ease(clamp01((elapsed - a.delay) / 0.9))
+        const act = ease(clamp01((elapsed - a.delay) / (0.9 / (story ? spawnMod : 1))))
         a.act = act
         const hub = hubs[a.hub]
         const depth = a.z
@@ -259,14 +343,14 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         const alphaNode = (0.6 + depth * 0.4) * a.act
         if (alphaNode > 0.001) {
           // node
-          ctx.fillStyle = `rgba(16,185,129,${alphaNode})`
+          ctx.fillStyle = emerald(alphaNode, hueShift)
           ctx.beginPath()
           ctx.arc(a.x, a.y, size * 0.8, 0, Math.PI * 2)
           ctx.fill()
         }
 
         // connections to a few nearest in next N items for perf
-        const localMax = (maxConn * (0.8 + depth * 0.35)) * (0.5 + 0.5 * a.act) // ramp distance with activation
+        const localMax = (maxConn * (0.8 + depth * 0.35)) * (0.5 + 0.5 * a.act) * (story ? linkMod : 1)
         if (a.act > 0.15) {
           for (let j = i + 1; j < i + 10 && j < arr.length; j++) {
             const b = arr[j]
@@ -275,7 +359,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
             const d = Math.hypot(dx, dy)
             if (d < localMax && b.act > 0.15) {
               const alpha = (1 - d / localMax) * Math.min(a.act, b.act)
-              ctx.strokeStyle = `rgba(16,185,129,${alpha * (0.18 + depth * 0.15)})`
+              ctx.strokeStyle = emerald(alpha * (0.18 + depth * 0.15), hueShift)
               ctx.lineWidth = 0.6 + depth * 0.7
               ctx.beginPath()
               ctx.moveTo(a.x, a.y)
@@ -287,7 +371,17 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       })
 
       // draw central coordination core last so it sits above scaffold but under nodes
-      drawCore(t, corePulse * coreProgress)
+      drawCore(t, corePulse * coreProgress * (story ? coreMod : 1), hueShift)
+
+      // draw caption subtly on top
+      if (story && elapsed > 1.6) {
+        // fade captions in/out within each beat
+        const beatDur = 2.2
+        const ti = Math.max(0, elapsed - 1.6)
+        const local = (ti % beatDur) / beatDur
+        const fade = local < 0.2 ? ease(local / 0.2) : local > 0.8 ? ease((1 - local) / 0.2) : 1
+        drawCaption(caption, subCaption, hueShift, fade)
+      }
 
       rafRef.current = requestAnimationFrame(step)
     }
@@ -298,7 +392,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       cancelAnimationFrame(rafRef.current)
       window.removeEventListener('resize', onResize)
     }
-  }, [speed, tier, parallax.x, parallax.y])
+  }, [speed, tier, parallax.x, parallax.y, story])
 
   return (
     <canvas
