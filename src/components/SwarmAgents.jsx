@@ -14,6 +14,8 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
   const cfgRef = useRef({})
   const startTsRef = useRef(0)
   const coverageRef = useRef(new Set()) // track which hubs have been connected to by beacons in the current cycle
+  const currentBeatRef = useRef(-1)
+  const zoneRef = useRef(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -92,6 +94,13 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       enterprise: 1.15,
     }
 
+    // Three presentation zones for KPI beacons: right (default), left-top, lower-right
+    const zones = [
+      { x: 0.62, y: 0.18, anchor: 'left' },  // original
+      { x: 0.12, y: 0.22, anchor: 'right' }, // left side
+      { x: 0.55, y: 0.65, anchor: 'left' },  // lower right
+    ]
+
     const init = () => {
       const tcfg = tierConfig[tier] || tierConfig.small
       const count = Math.floor((w * h) / tcfg.density) + 80
@@ -123,6 +132,8 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       cfgRef.current.hubs = hubs
       startTsRef.current = performance.now()
       coverageRef.current = new Set() // reset cycle coverage on init (resize/tier change)
+      currentBeatRef.current = -1
+      zoneRef.current = 0
     }
 
     init()
@@ -228,10 +239,10 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     }
 
     // KPI Beacon cards: glassy plaques with glowing gradient numbers
-    const drawKPIBeacons = (kpis, time, opacity, hubs, coverage) => {
+    const drawKPIBeacons = (kpis, time, opacity, hubs, coverage, zone) => {
       if (!kpis || kpis.length === 0 || opacity <= 0) return
-      const baseX = w * 0.62 // right half, near animation
-      const baseY = h * 0.18 // upper area for prominence
+      const baseX = w * zone.x
+      const baseY = h * zone.y
 
       kpis.slice(0,3).forEach((k, i) => {
         const x = baseX + Math.sin(time * (0.7 + i * 0.2) + i) * 18 * (i + 1)
@@ -243,7 +254,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
         // subtle connector to farthest hub, ensuring coverage across a cycle
         if (hubs && hubs.length) {
-          const ax = x // left edge anchor for elegance
+          const ax = zone.anchor === 'left' ? x : x + width
           const ay = y + height / 2
 
           let farIdx = 0
@@ -259,14 +270,14 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           }
 
           const chosenIdx = farIdxUncovered !== -1 ? farIdxUncovered : farIdx
-          const nearest = hubs[chosenIdx]
+          const targetHub = hubs[chosenIdx]
           coverage.add(chosenIdx)
 
           // quadratic curve with slight bow toward mid
-          const midx = (nearest.x + ax) / 2
-          const midy = (nearest.y + ay) / 2
-          const dx = ax - nearest.x
-          const dy = ay - nearest.y
+          const midx = (targetHub.x + ax) / 2
+          const midy = (targetHub.y + ay) / 2
+          const dx = ax - targetHub.x
+          const dy = ay - targetHub.y
           const dist = Math.hypot(dx, dy) || 1
           const nx = -dy / dist
           const ny = dx / dist
@@ -277,7 +288,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           ctx.save()
           ctx.globalAlpha = 0.75 * opacity
           ctx.beginPath()
-          ctx.moveTo(nearest.x, nearest.y)
+          ctx.moveTo(targetHub.x, targetHub.y)
           ctx.quadraticCurveTo(cx, cy, ax, ay)
           ctx.strokeStyle = accent(0.6, i)
           ctx.lineWidth = 1.5
@@ -357,11 +368,12 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       // story modulation (kicks in after initial 1.6s)
       let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0
+      let beatIdx = 0
       if (story && elapsed > 1.6) {
         const beatDur = 3.6 // longer for readability
         const startOffset = 0.0
         const ti = Math.max(0, elapsed - 1.6 - startOffset)
-        const beatIdx = Math.floor(ti / beatDur) % beats.length
+        beatIdx = Math.floor(ti / beatDur) % beats.length
         const local = (ti % beatDur) / beatDur // 0..1 in-beat
         const smoothIn = ease(Math.min(local * 2, 1))
         const b = beats[beatIdx]
@@ -370,6 +382,17 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         linkMod = 1 + (b.links - 1) * (0.65 + 0.35 * smoothIn) * scale
         spawnMod = 1 + (b.spawn - 1) * (0.65 + 0.35 * smoothIn) * scale
         hueShift = (b.hue - 158)
+
+        // pick a new KPI zone at beat boundaries (stable within the beat)
+        if (currentBeatRef.current !== beatIdx) {
+          const prev = zoneRef.current
+          let next = Math.floor(Math.random() * zones.length)
+          if (zones.length > 1 && next === prev) {
+            next = (next + 1) % zones.length
+          }
+          zoneRef.current = next
+          currentBeatRef.current = beatIdx
+        }
       }
 
       // clear with subtle trail for flow
@@ -462,7 +485,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         }
 
         // connections to a few nearest in next N items for perf
-        const localMax = (maxConn * (0.8 + depth * 0.35)) * (0.5 + 0.5 * a.act) * (story ? linkMod : 1)
+        const localMax = (maxConn * (0.8 + depth * 0.35)) * (0.5 + 0.5 * a.act) * (story ? (linkMod || 1) : 1)
         if (a.act > 0.15) {
           for (let j = i + 1; j < i + 10 && j < arr.length; j++) {
             const b = arr[j]
@@ -483,7 +506,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       })
 
       // draw central coordination core last so it sits above scaffold but under nodes
-      drawCore(t, corePulse * coreProgress * (story ? coreMod : 1), hueShift)
+      drawCore(t, corePulse * coreProgress * (story ? (coreMod || 1) : 1), hueShift)
 
       // KPI Beacons (prominent, readable, value-forward)
       if (story && elapsed > 1.6) {
@@ -496,7 +519,8 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         const local = (ti % beatDur) / beatDur
         const fade = local < 0.2 ? ease(local / 0.2) : local > 0.85 ? ease((1 - local) / 0.15) : 1
         const idx = Math.floor(ti / beatDur) % beats.length
-        drawKPIBeacons(beats[idx].kpis, t, fade, hubs, coverageRef.current)
+        const zone = zones[zoneRef.current] || zones[0]
+        drawKPIBeacons(beats[idx].kpis, t, fade, hubs, coverageRef.current, zone)
       }
 
       rafRef.current = requestAnimationFrame(step)
