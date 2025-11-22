@@ -233,10 +233,51 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       kpis.slice(0,3).forEach((k, i) => {
         const x = baseX + Math.sin(time * (0.7 + i * 0.2) + i) * 18 * (i + 1)
-        const y = baseY + i * 74 + Math.cos(time * (0.6 + i * 0.25)) * 6
-        const width = Math.min(280, Math.max(200, w * 0.22))
-        const height = 56
+        const y = baseY + i * 82 + Math.cos(time * (0.6 + i * 0.25)) * 6
+        const width = Math.min(300, Math.max(220, w * 0.24))
+        const height = 64
         const r = 14
+        const pad = 16
+
+        // subtle connector to nearest hub (under the card)
+        const hubs = cfgRef.current.hubs || []
+        if (hubs.length) {
+          // anchor on left-center of card for a tasteful link
+          const ax = x
+          const ay = y + height / 2
+          let nearest = hubs[0]
+          let nd = Infinity
+          for (let hbi = 0; hbi < hubs.length; hbi++) {
+            const hb = hubs[hbi]
+            const d = Math.hypot(hb.x - ax, hb.y - ay)
+            if (d < nd) { nd = d; nearest = hb }
+          }
+          // quadratic curve with slight bow toward mid
+          const midx = (nearest.x + ax) / 2
+          const midy = (nearest.y + ay) / 2
+          const dx = ax - nearest.x
+          const dy = ay - nearest.y
+          const dist = Math.hypot(dx, dy) || 1
+          const nx = -dy / dist
+          const ny = dx / dist
+          const bulge = Math.min(60, 20 + dist * 0.06)
+          const cx = midx + nx * bulge
+          const cy = midy + ny * bulge
+
+          ctx.save()
+          ctx.globalAlpha = 0.75 * opacity
+          ctx.beginPath()
+          ctx.moveTo(nearest.x, nearest.y)
+          ctx.quadraticCurveTo(cx, cy, ax, ay)
+          ctx.strokeStyle = accent(0.6, i)
+          ctx.lineWidth = 1.5
+          ctx.setLineDash([6, 6])
+          ctx.lineDashOffset = (time * 40) % 12
+          ctx.shadowColor = accent(0.75, i)
+          ctx.shadowBlur = 8
+          ctx.stroke()
+          ctx.restore()
+        }
 
         // card background
         ctx.save()
@@ -268,17 +309,28 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         ctx.stroke()
         ctx.restore()
 
-        // number + label
+        // content layout: stack big value on top, label below to prevent overlap
         ctx.save()
         ctx.globalAlpha = opacity
-        ctx.font = '700 22px Inter, system-ui, -apple-system, Segoe UI, Roboto'
+        // dynamic font sizing for value to avoid overflow
+        let valueFontSize = 22
+        ctx.font = `700 ${valueFontSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto`
+        let valueWidth = ctx.measureText(k.value).width
+        const avail = width - pad * 2
+        if (valueWidth > avail) {
+          const scale = avail / valueWidth
+          valueFontSize = Math.max(16, Math.floor(valueFontSize * scale))
+          ctx.font = `700 ${valueFontSize}px Inter, system-ui, -apple-system, Segoe UI, Roboto`
+          valueWidth = ctx.measureText(k.value).width
+        }
+        ctx.textBaseline = 'top'
         ctx.fillStyle = accent(0.95, i)
-        ctx.textBaseline = 'middle'
-        ctx.fillText(k.value, x + 16, y + height / 2)
+        ctx.fillText(k.value, x + pad, y + 10)
 
+        // label on second line
         ctx.font = '500 12px Inter, system-ui, -apple-system, Segoe UI, Roboto'
-        ctx.fillStyle = 'rgba(226,232,240,0.9)'
-        ctx.fillText(k.label, x + 16 + ctx.measureText(k.value).width + 10, y + height / 2)
+        ctx.fillStyle = 'rgba(226,232,240,0.92)'
+        ctx.fillText(k.label, x + pad, y + 10 + valueFontSize + 6)
         ctx.restore()
       })
     }
