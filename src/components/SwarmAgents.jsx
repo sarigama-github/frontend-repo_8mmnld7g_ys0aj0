@@ -13,6 +13,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
   const agentsRef = useRef([])
   const cfgRef = useRef({})
   const startTsRef = useRef(0)
+  const coverageRef = useRef(new Set()) // track which hubs have been connected to by beacons in the current cycle
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -121,6 +122,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       cfgRef.current.hubs = hubs
       startTsRef.current = performance.now()
+      coverageRef.current = new Set() // reset cycle coverage on init (resize/tier change)
     }
 
     init()
@@ -226,7 +228,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     }
 
     // KPI Beacon cards: glassy plaques with glowing gradient numbers
-    const drawKPIBeacons = (kpis, time, opacity) => {
+    const drawKPIBeacons = (kpis, time, opacity, hubs, coverage) => {
       if (!kpis || kpis.length === 0 || opacity <= 0) return
       const baseX = w * 0.62 // right half, near animation
       const baseY = h * 0.18 // upper area for prominence
@@ -239,19 +241,27 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         const r = 14
         const pad = 16
 
-        // subtle connector to nearest hub (under the card)
-        const hubs = cfgRef.current.hubs || []
-        if (hubs.length) {
-          // anchor on left-center of card for a tasteful link
-          const ax = x
+        // subtle connector to farthest hub, ensuring coverage across a cycle
+        if (hubs && hubs.length) {
+          const ax = x // left edge anchor for elegance
           const ay = y + height / 2
-          let nearest = hubs[0]
-          let nd = Infinity
+
+          let farIdx = 0
+          let farD = -Infinity
+          let farIdxUncovered = -1
+          let farDUncovered = -Infinity
+
           for (let hbi = 0; hbi < hubs.length; hbi++) {
             const hb = hubs[hbi]
             const d = Math.hypot(hb.x - ax, hb.y - ay)
-            if (d < nd) { nd = d; nearest = hb }
+            if (d > farD) { farD = d; farIdx = hbi }
+            if (!coverage.has(hbi) && d > farDUncovered) { farDUncovered = d; farIdxUncovered = hbi }
           }
+
+          const chosenIdx = farIdxUncovered !== -1 ? farIdxUncovered : farIdx
+          const nearest = hubs[chosenIdx]
+          coverage.add(chosenIdx)
+
           // quadratic curve with slight bow toward mid
           const midx = (nearest.x + ax) / 2
           const midy = (nearest.y + ay) / 2
@@ -346,22 +356,20 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const scaffoldProgress = ease(clamp01((elapsed - 0.9) / 1.6))
 
       // story modulation (kicks in after initial 1.6s)
-      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0, kpis = null
-      let beatIdx = 0, local = 0
+      let coreMod = 1, linkMod = 1, spawnMod = 1, hueShift = 0
       if (story && elapsed > 1.6) {
         const beatDur = 3.6 // longer for readability
         const startOffset = 0.0
         const ti = Math.max(0, elapsed - 1.6 - startOffset)
-        beatIdx = Math.floor(ti / beatDur) % beats.length
-        local = (ti % beatDur) / beatDur // 0..1 in-beat
+        const beatIdx = Math.floor(ti / beatDur) % beats.length
+        const local = (ti % beatDur) / beatDur // 0..1 in-beat
         const smoothIn = ease(Math.min(local * 2, 1))
         const b = beats[beatIdx]
-        const scale = tierStoryBoost[tier] || 1
+        const scale = (tierStoryBoost[tier] || 1)
         coreMod = 1 + (b.core - 1) * (0.65 + 0.35 * smoothIn) * scale
         linkMod = 1 + (b.links - 1) * (0.65 + 0.35 * smoothIn) * scale
         spawnMod = 1 + (b.spawn - 1) * (0.65 + 0.35 * smoothIn) * scale
         hueShift = (b.hue - 158)
-        kpis = b.kpis
       }
 
       // clear with subtle trail for flow
@@ -479,12 +487,16 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
       // KPI Beacons (prominent, readable, value-forward)
       if (story && elapsed > 1.6) {
+        // reset cycle coverage once all hubs have been connected at least once
+        if (coverageRef.current.size >= hubs.length) {
+          coverageRef.current = new Set()
+        }
         const beatDur = 3.6
         const ti = Math.max(0, elapsed - 1.6)
         const local = (ti % beatDur) / beatDur
         const fade = local < 0.2 ? ease(local / 0.2) : local > 0.85 ? ease((1 - local) / 0.15) : 1
         const idx = Math.floor(ti / beatDur) % beats.length
-        drawKPIBeacons(beats[idx].kpis, t, fade)
+        drawKPIBeacons(beats[idx].kpis, t, fade, hubs, coverageRef.current)
       }
 
       rafRef.current = requestAnimationFrame(step)
