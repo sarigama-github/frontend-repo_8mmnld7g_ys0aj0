@@ -73,6 +73,25 @@ export default function Hero() {
         <SwarmAgents speed={speed} tier={tier} parallax={{ x: (translateHero.get?.() ?? 0), y: 0 }} />
       </div>
 
+      {/* Top-left mode title */}
+      <div className="pointer-events-none absolute left-4 top-4 z-30">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tier}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.3 }}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/6 px-3.5 py-2 text-sm font-semibold text-white shadow-[0_8px_40px_-10px_rgba(15,23,42,0.8)] backdrop-blur-sm"
+            style={{ WebkitBackdropFilter: 'blur(6px)', backgroundColor: 'rgba(255,255,255,0.06)' }}
+          >
+            <span className="opacity-80">Mode</span>
+            <span className="h-1 w-1 rounded-full bg-white/50" />
+            <span className="tracking-wide">{copy.label}</span>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
       <motion.div style={{ rotateX, rotateY }} className="relative z-10 mx-auto flex max-w-7xl flex-col gap-10 px-6 pt-14 sm:pt-20 md:flex-row md:items-center md:gap-16 will-change-transform">
         {/* Copy + Brand */}
         <motion.div style={{ x: translateHero }} className="max-w-2xl">
