@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Play, Building2, Building, Users, Sparkles, Star } from 'lucide-react'
+import { ArrowRight, Play, Building2, Building, Users, Sparkles } from 'lucide-react'
 import SwarmAgents from './SwarmAgents'
+import Starfield from './Starfield'
+import HeroCrest from './HeroCrest'
 
 const glow = {
   initial: { opacity: 0.45 },
@@ -59,8 +61,9 @@ export default function Hero() {
 
   return (
     <section className="relative min-h-[92vh] w-full overflow-hidden bg-slate-950">
-      {/* Background gradient + grid with stronger emerald accents */}
+      {/* Starfield and background grid */}
       <div className="pointer-events-none absolute inset-0">
+        <Starfield />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(16,185,129,0.18),transparent_45%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.06)_1px,transparent_1px)] bg-[size:40px_40px] opacity-30" />
       </div>
@@ -73,13 +76,11 @@ export default function Hero() {
       <motion.div style={{ rotateX, rotateY }} className="relative z-10 mx-auto flex max-w-7xl flex-col gap-10 px-6 pt-14 sm:pt-20 md:flex-row md:items-center md:gap-16 will-change-transform">
         {/* Copy + Brand */}
         <motion.div style={{ x: translateHero }} className="max-w-2xl">
-          {/* Majestic Brand Lockup */}
-          <div className="relative mb-4 inline-flex items-center gap-2 text-emerald-300">
-            <Sparkles className="h-4 w-4" />
-            Introducing
-          </div>
+          {/* Crest */}
+          <HeroCrest />
 
-          <div className="relative">
+          {/* Majestic Brand Lockup */}
+          <div className="relative mt-4">
             {/* Subtle rotating rune ring behind the brand */}
             <motion.div
               aria-hidden
@@ -117,7 +118,7 @@ export default function Hero() {
             </a>
           </motion.div>
 
-          {/* Tier segmented control (moved here, replacing motion control) */}
+          {/* Tier segmented control */}
           <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="mt-6 inline-flex items-center gap-1 rounded-2xl border border-emerald-500/30 bg-slate-900/70 p-1 text-sm backdrop-blur">
             {tiers.map((t) => (
               <button
@@ -148,8 +149,8 @@ export default function Hero() {
           {/* Micro points under hero */}
           <div className="mt-8 grid grid-cols-2 gap-4 text-sm text-slate-400 sm:max-w-lg">
             {[
-              'Swarm agent orchestration',
-              'Parallax depth, tuned speed',
+              'Crested brand reveal',
+              'Staged network activation',
               'Emerald accents, elevated',
               'Designed for teams of all sizes',
             ].map((t, i) => (

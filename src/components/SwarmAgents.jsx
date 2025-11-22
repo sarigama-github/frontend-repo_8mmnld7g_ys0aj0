@@ -2,13 +2,15 @@ import React, { useEffect, useRef } from 'react'
 
 // Enhanced swarm/agents canvas animation with pseudo-3D depth, hubs, tier-based complexity,
 // plus a 3D network scaffold (bezier arcs + depth blur) and a central coordination core
-// that pulses stronger as tiers increase.
+// that pulses stronger as tiers increase. Adds staged startup: hubs, core, scaffold, then nodes/links
+// fade in sequentially for a dramatic entrance.
 // Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"), parallax {x,y}
 export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 } }) {
   const canvasRef = useRef(null)
   const rafRef = useRef(0)
   const agentsRef = useRef([])
   const cfgRef = useRef({})
+  const startTsRef = useRef(0)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -57,7 +59,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         z: 0.6 + (i / Math.max(1, nodes - 1)) * 0.4, // 0.6..1.0 depth factor
       }))
 
-      // agents with depth
+      // agents with depth + staged activation
       agentsRef.current = new Array(count).fill(0).map(() => ({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -65,18 +67,24 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         vy: (Math.random() - 0.5) * 0.5,
         hub: Math.floor(Math.random() * nodes),
         z: 0.5 + Math.random() * 0.7, // depth 0.5..1.2
+        delay: Math.random() * 2.6 + 0.2, // seconds before it "comes alive"
+        act: 0, // 0..1 activation
       }))
 
       cfgRef.current.hubs = hubs
+      startTsRef.current = performance.now()
     }
 
     init()
 
     let t = 0
 
+    const clamp01 = (v) => Math.max(0, Math.min(1, v))
+    const ease = (p) => p * p * (3 - 2 * p) // smoothstep-like
+
     // draw a subtle scaffold of bezier arcs between hubs
     const drawScaffold = (hubs, time, intensity) => {
-      if (!hubs || hubs.length < 2) return
+      if (!hubs || hubs.length < 2 || intensity <= 0.001) return
       const maxPairs = Math.min(6 + Math.floor(intensity * 4), (hubs.length * (hubs.length - 1)) / 2)
       let drawn = 0
       for (let i = 0; i < hubs.length; i++) {
@@ -116,6 +124,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
     // central coordination core pulse
     const drawCore = (time, intensity) => {
+      if (intensity <= 0.001) return
       const cx = w * 0.36 // slightly left of center so content overlay feels balanced
       const cy = h * 0.48
       const baseR = Math.min(w, h) * 0.08
@@ -160,6 +169,12 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const { hubs, s, nodeGlow, maxConn, corePulse } = cfgRef.current
       t += 0.005 * s
 
+      // elapsed time in seconds since init for staged startup
+      const elapsed = (performance.now() - startTsRef.current) / 1000
+      const hubProgress = ease(clamp01((elapsed - 0.2) / 1.2))
+      const coreProgress = ease(clamp01((elapsed - 0.4) / 1.0))
+      const scaffoldProgress = ease(clamp01((elapsed - 0.6) / 1.6))
+
       // clear with subtle trail for flow
       const bgAlpha = 0.08
       ctx.fillStyle = `rgba(2, 6, 23, ${bgAlpha})` // slate-950 with alpha
@@ -172,11 +187,11 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         hub.phase += 0.01
       })
 
-      // draw hubs glow first (depth-aware size)
+      // draw hubs glow first (depth-aware size) with staged opacity
       hubs.forEach((hub) => {
         const r = hub.r * (0.8 + hub.z * 0.4)
         const grad = ctx.createRadialGradient(hub.x, hub.y, 0, hub.x, hub.y, r)
-        grad.addColorStop(0, `rgba(16,185,129,${nodeGlow})`)
+        grad.addColorStop(0, `rgba(16,185,129,${nodeGlow * hubProgress})`)
         grad.addColorStop(1, 'rgba(16,185,129,0)')
         ctx.fillStyle = grad
         ctx.beginPath()
@@ -194,23 +209,26 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         return n
       }
 
-      // subtle network scaffold connecting hubs
-      drawScaffold(hubs, t * (1.1 + 0.2 * s), corePulse)
+      // subtle network scaffold connecting hubs (staged in)
+      drawScaffold(hubs, t * (1.1 + 0.2 * s), corePulse * scaffoldProgress)
 
-      // update agents
+      // update agents with activation
       agentsRef.current.forEach((a) => {
+        // activation based on individual delay
+        const act = ease(clamp01((elapsed - a.delay) / 0.9))
+        a.act = act
         const hub = hubs[a.hub]
         const depth = a.z
-        // attraction to hub + flow field steering
+        // attraction to hub + flow field steering, scaled by activation
         const dx = hub.x + parX * (1.2 - depth) - a.x
         const dy = hub.y + parY * (1.2 - depth) - a.y
         const dist = Math.hypot(dx, dy) || 1
-        const ax = (dx / dist) * 0.04 * s * (0.7 + depth * 0.6)
-        const ay = (dy / dist) * 0.04 * s * (0.7 + depth * 0.6)
+        const ax = (dx / dist) * 0.04 * s * (0.5 + 0.5 * act) * (0.7 + depth * 0.6)
+        const ay = (dy / dist) * 0.04 * s * (0.5 + 0.5 * act) * (0.7 + depth * 0.6)
 
         const angle = field(a.x, a.y, depth) * Math.PI
-        const fx = Math.cos(angle) * 0.05 * s * (0.6 + depth * 0.6)
-        const fy = Math.sin(angle) * 0.05 * s * (0.6 + depth * 0.6)
+        const fx = Math.cos(angle) * 0.05 * s * (0.3 + 0.7 * act) * (0.6 + depth * 0.6)
+        const fy = Math.sin(angle) * 0.05 * s * (0.3 + 0.7 * act) * (0.6 + depth * 0.6)
 
         a.vx += ax + fx
         a.vy += ay + fy
@@ -238,33 +256,38 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       arr.forEach((a, i) => {
         const depth = a.z
         const size = 1 + depth * 1.2
-        // node
-        ctx.fillStyle = `rgba(16,185,129,${0.6 + depth * 0.4})`
-        ctx.beginPath()
-        ctx.arc(a.x, a.y, size * 0.8, 0, Math.PI * 2)
-        ctx.fill()
+        const alphaNode = (0.6 + depth * 0.4) * a.act
+        if (alphaNode > 0.001) {
+          // node
+          ctx.fillStyle = `rgba(16,185,129,${alphaNode})`
+          ctx.beginPath()
+          ctx.arc(a.x, a.y, size * 0.8, 0, Math.PI * 2)
+          ctx.fill()
+        }
 
         // connections to a few nearest in next N items for perf
-        const localMax = maxConn * (0.8 + depth * 0.35)
-        for (let j = i + 1; j < i + 10 && j < arr.length; j++) {
-          const b = arr[j]
-          const dx = a.x - b.x
-          const dy = a.y - b.y
-          const d = Math.hypot(dx, dy)
-          if (d < localMax) {
-            const alpha = 1 - d / localMax
-            ctx.strokeStyle = `rgba(16,185,129,${alpha * (0.18 + depth * 0.15)})`
-            ctx.lineWidth = 0.6 + depth * 0.7
-            ctx.beginPath()
-            ctx.moveTo(a.x, a.y)
-            ctx.lineTo(b.x, b.y)
-            ctx.stroke()
+        const localMax = (maxConn * (0.8 + depth * 0.35)) * (0.5 + 0.5 * a.act) // ramp distance with activation
+        if (a.act > 0.15) {
+          for (let j = i + 1; j < i + 10 && j < arr.length; j++) {
+            const b = arr[j]
+            const dx = a.x - b.x
+            const dy = a.y - b.y
+            const d = Math.hypot(dx, dy)
+            if (d < localMax && b.act > 0.15) {
+              const alpha = (1 - d / localMax) * Math.min(a.act, b.act)
+              ctx.strokeStyle = `rgba(16,185,129,${alpha * (0.18 + depth * 0.15)})`
+              ctx.lineWidth = 0.6 + depth * 0.7
+              ctx.beginPath()
+              ctx.moveTo(a.x, a.y)
+              ctx.lineTo(b.x, b.y)
+              ctx.stroke()
+            }
           }
         }
       })
 
       // draw central coordination core last so it sits above scaffold but under nodes
-      drawCore(t, corePulse)
+      drawCore(t, corePulse * coreProgress)
 
       rafRef.current = requestAnimationFrame(step)
     }
