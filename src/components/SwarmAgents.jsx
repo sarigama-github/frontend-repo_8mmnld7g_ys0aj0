@@ -1,6 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 
-// Enhanced swarm/agents canvas animation with pseudo-3D depth, hubs, and tier-based complexity
+// Enhanced swarm/agents canvas animation with pseudo-3D depth, hubs, tier-based complexity,
+// plus a 3D network scaffold (bezier arcs + depth blur) and a central coordination core
+// that pulses stronger as tiers increase.
 // Props: speed ("calm" | "normal" | "fast"), tier ("small" | "medium" | "enterprise"), parallax {x,y}
 export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax = { x: 0, y: 0 } }) {
   const canvasRef = useRef(null)
@@ -34,9 +36,9 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
     window.addEventListener('resize', onResize)
 
     const tierConfig = {
-      small: { hubCount: 3, density: 13000, nodeGlow: 0.18, maxConn: 95 },
-      medium: { hubCount: 4, density: 12000, nodeGlow: 0.22, maxConn: 110 },
-      enterprise: { hubCount: 5, density: 10000, nodeGlow: 0.28, maxConn: 130 },
+      small: { hubCount: 3, density: 13000, nodeGlow: 0.18, maxConn: 95, corePulse: 0.7 },
+      medium: { hubCount: 4, density: 12000, nodeGlow: 0.22, maxConn: 110, corePulse: 1.0 },
+      enterprise: { hubCount: 5, density: 10000, nodeGlow: 0.28, maxConn: 130, corePulse: 1.35 },
     }
 
     const init = () => {
@@ -44,7 +46,7 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
       const count = Math.floor((w * h) / tcfg.density) + 80
       const nodes = tcfg.hubCount
       const s = speed === 'fast' ? 1.6 : speed === 'calm' ? 0.7 : 1.0
-      cfgRef.current = { count, nodes, s, nodeGlow: tcfg.nodeGlow, maxConn: tcfg.maxConn }
+      cfgRef.current = { count, nodes, s, nodeGlow: tcfg.nodeGlow, maxConn: tcfg.maxConn, corePulse: tcfg.corePulse }
 
       // initialize hubs with depth layers
       const hubs = new Array(nodes).fill(0).map((_, i) => ({
@@ -72,8 +74,90 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
 
     let t = 0
 
+    // draw a subtle scaffold of bezier arcs between hubs
+    const drawScaffold = (hubs, time, intensity) => {
+      if (!hubs || hubs.length < 2) return
+      const maxPairs = Math.min(6 + Math.floor(intensity * 4), (hubs.length * (hubs.length - 1)) / 2)
+      let drawn = 0
+      for (let i = 0; i < hubs.length; i++) {
+        for (let j = i + 1; j < hubs.length; j++) {
+          if (drawn++ > maxPairs) return
+          const a = hubs[i]
+          const b = hubs[j]
+          const midx = (a.x + b.x) / 2
+          const midy = (a.y + b.y) / 2
+          const dx = b.x - a.x
+          const dy = b.y - a.y
+          const dist = Math.hypot(dx, dy)
+          // control point offset creates a soft arc, animated by time
+          const normalX = -dy / (dist || 1)
+          const normalY = dx / (dist || 1)
+          const wobble = Math.sin(time * 1.6 + i * 0.9 + j * 0.6)
+          const bulge = Math.min(120, 40 + dist * 0.08) * (0.6 + intensity * 0.5)
+          const cx = midx + normalX * bulge * (0.6 + 0.4 * wobble)
+          const cy = midy + normalY * bulge * (0.6 + 0.4 * wobble)
+
+          // depth-aware blur based on hub depths
+          const z = (a.z + b.z) / 2
+          ctx.save()
+          ctx.beginPath()
+          ctx.moveTo(a.x, a.y)
+          ctx.quadraticCurveTo(cx, cy, b.x, b.y)
+          const alpha = 0.05 + z * 0.08 * (0.8 + intensity * 0.6)
+          ctx.strokeStyle = `rgba(16,185,129,${alpha})`
+          ctx.lineWidth = 1 + z * 1.2
+          ctx.shadowColor = 'rgba(16,185,129,0.35)'
+          ctx.shadowBlur = 6 + 10 * z
+          ctx.stroke()
+          ctx.restore()
+        }
+      }
+    }
+
+    // central coordination core pulse
+    const drawCore = (time, intensity) => {
+      const cx = w * 0.36 // slightly left of center so content overlay feels balanced
+      const cy = h * 0.48
+      const baseR = Math.min(w, h) * 0.08
+      const pulse = (Math.sin(time * 2.1) + 1) / 2 // 0..1
+      const r = baseR * (0.9 + pulse * 0.25 * intensity)
+
+      // radial glow
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.2)
+      grad.addColorStop(0, `rgba(16,185,129,${0.10 * intensity})`)
+      grad.addColorStop(1, 'rgba(16,185,129,0)')
+      ctx.fillStyle = grad
+      ctx.beginPath()
+      ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2)
+      ctx.fill()
+
+      // inner core
+      const innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
+      innerGrad.addColorStop(0, `rgba(16,185,129,${0.25 + 0.25 * pulse * intensity})`)
+      innerGrad.addColorStop(1, 'rgba(16,185,129,0)')
+      ctx.fillStyle = innerGrad
+      ctx.beginPath()
+      ctx.arc(cx, cy, r, 0, Math.PI * 2)
+      ctx.fill()
+
+      // rotating ring accents
+      const ringCount = 2 + Math.round(intensity)
+      for (let i = 0; i < ringCount; i++) {
+        const rr = r * (1.2 + i * 0.25)
+        const start = time * (0.6 + 0.2 * i)
+        const sweep = Math.PI * (0.6 + 0.15 * i)
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = `rgba(16,185,129,${0.18 - i * 0.04})`
+        ctx.lineWidth = 1.2
+        ctx.arc(cx, cy, rr, start, start + sweep)
+        ctx.stroke()
+        ctx.restore()
+      }
+    }
+
     const step = () => {
-      const { hubs, s, nodeGlow, maxConn } = cfgRef.current
+      const { hubs, s, nodeGlow, maxConn, corePulse } = cfgRef.current
       t += 0.005 * s
 
       // clear with subtle trail for flow
@@ -109,6 +193,9 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
         const n = Math.sin((x + t * 200) * 0.002 * (1 + (z - 1) * 0.2)) + Math.cos((y - t * 160) * 0.0023 * (1 + (z - 1) * 0.25))
         return n
       }
+
+      // subtle network scaffold connecting hubs
+      drawScaffold(hubs, t * (1.1 + 0.2 * s), corePulse)
 
       // update agents
       agentsRef.current.forEach((a) => {
@@ -175,6 +262,9 @@ export default function SwarmAgents({ speed = 'normal', tier = 'small', parallax
           }
         }
       })
+
+      // draw central coordination core last so it sits above scaffold but under nodes
+      drawCore(t, corePulse)
 
       rafRef.current = requestAnimationFrame(step)
     }
