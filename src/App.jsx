@@ -2,6 +2,7 @@ import React from 'react'
 import Hero from './components/Hero'
 import ValuePyramid from './components/ValuePyramid'
 import Architecture from './components/Architecture'
+import WhitePaper from './components/WhitePaper'
 import Examples from './components/Examples'
 import WhyDifferent from './components/WhyDifferent'
 import EnterpriseSafety from './components/EnterpriseSafety'
@@ -14,6 +15,7 @@ function App() {
       <Hero />
       <ValuePyramid />
       <Architecture />
+      <WhitePaper />
       <Examples />
       <WhyDifferent />
       <EnterpriseSafety />
