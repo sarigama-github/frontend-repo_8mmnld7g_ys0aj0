@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Play, Building2, Building, Users, Sparkles } from 'lucide-react'
+import { ArrowRight, Play, Building2, Building, Users } from 'lucide-react'
 import SwarmAgents from './SwarmAgents'
 import Starfield from './Starfield'
 import HeroCrest from './HeroCrest'
+import HeroStory from './HeroStory'
 
 const glow = {
   initial: { opacity: 0.45 },
@@ -145,6 +146,9 @@ export default function Hero() {
               </div>
             </motion.div>
           </AnimatePresence>
+
+          {/* Storytelling wave tied to architecture */}
+          <HeroStory tier={tier} />
 
           {/* Micro points under hero */}
           <div className="mt-8 grid grid-cols-2 gap-4 text-sm text-slate-400 sm:max-w-lg">
