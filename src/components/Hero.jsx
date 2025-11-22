@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Play, Zap, Turtle, Gauge, Building2, Building, Users } from 'lucide-react'
+import { ArrowRight, Play, Building2, Building, Users, Sparkles, Star } from 'lucide-react'
 import SwarmAgents from './SwarmAgents'
 
 const glow = {
@@ -29,8 +29,10 @@ const tierCopy = {
 }
 
 export default function Hero() {
-  const [speed, setSpeed] = useState('normal') // calm | normal | fast
-  const [tier, setTier] = useState('small') // small | medium | enterprise
+  // Fixed fast speed (no user controls)
+  const speed = 'fast'
+  // Default tier is enterprise for the most impressive visual
+  const [tier, setTier] = useState('enterprise') // small | medium | enterprise
 
   // Mouse parallax
   const mx = useMotionValue(0)
@@ -63,40 +65,40 @@ export default function Hero() {
         <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(16,185,129,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(16,185,129,0.06)_1px,transparent_1px)] bg-[size:40px_40px] opacity-30" />
       </div>
 
-      {/* 3-tier segmented control (top) */}
-      <div className="relative z-20 mx-auto mt-5 flex max-w-7xl justify-center px-6">
-        <div className="inline-flex items-center gap-1 rounded-2xl border border-emerald-500/30 bg-slate-900/70 p-1 backdrop-blur">
-          {tiers.map((t) => (
-            <button
-              key={t}
-              onClick={() => setTier(t)}
-              className={`group flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm transition ${tier===t? 'bg-emerald-500 text-slate-900 shadow-[0_0_30px_rgba(16,185,129,0.45)]':'text-slate-300 hover:bg-slate-800/70'}`}
-            >
-              {t==='small' && <Users className="h-4 w-4"/>}
-              {t==='medium' && <Building className="h-4 w-4"/>}
-              {t==='enterprise' && <Building2 className="h-4 w-4"/>}
-              <span>{tierCopy[t].label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Unique swarm agents animation with tier-based complexity */}
       <div className="absolute inset-y-0 right-0 h-full w-full md:w-1/2" aria-hidden>
         <SwarmAgents speed={speed} tier={tier} parallax={{ x: (translateHero.get?.() ?? 0), y: 0 }} />
       </div>
 
-      <motion.div style={{ rotateX, rotateY }} className="relative z-10 mx-auto flex max-w-7xl flex-col gap-10 px-6 pt-20 sm:pt-24 md:flex-row md:items-center md:gap-16 will-change-transform">
-        {/* Copy */}
+      <motion.div style={{ rotateX, rotateY }} className="relative z-10 mx-auto flex max-w-7xl flex-col gap-10 px-6 pt-14 sm:pt-20 md:flex-row md:items-center md:gap-16 will-change-transform">
+        {/* Copy + Brand */}
         <motion.div style={{ x: translateHero }} className="max-w-2xl">
-          <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-emerald-300 shadow-[0_0_60px_rgba(16,185,129,0.25)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Agentic Engineering
-          </motion.div>
+          {/* Majestic Brand Lockup */}
+          <div className="relative mb-4 inline-flex items-center gap-2 text-emerald-300">
+            <Sparkles className="h-4 w-4" />
+            Introducing
+          </div>
 
-          <motion.h1 initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.05, duration: 0.7 }} className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-white sm:text-5xl md:text-6xl">
-            10x your product velocity with AI agents.
-          </motion.h1>
+          <div className="relative">
+            {/* Subtle rotating rune ring behind the brand */}
+            <motion.div
+              aria-hidden
+              className="pointer-events-none absolute -inset-6 -z-10 rounded-full border border-emerald-400/20 bg-emerald-500/5"
+              style={{ filter: 'blur(8px)' }}
+              animate={{ rotate: [0, 360] }}
+              transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
+            />
+            <h1 className="text-5xl font-extrabold tracking-tight text-white sm:text-6xl md:text-7xl">
+              <span className="bg-gradient-to-b from-white via-emerald-100 to-emerald-300 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(16,185,129,0.25)]">
+                Odin Labs
+              </span>
+            </h1>
+            <div className="mt-2 text-lg font-medium text-emerald-300/90">
+              AI Swarm Orchestration for Product Teams
+            </div>
+            {/* Emerald underline glow */}
+            <div className="mt-3 h-1 w-28 rounded-full bg-emerald-400/60 shadow-[0_0_30px_rgba(16,185,129,0.55)]" />
+          </div>
 
           <AnimatePresence mode="wait">
             <motion.p key={tier} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.35 }} className="mt-6 max-w-xl text-lg leading-relaxed text-slate-300">
@@ -104,7 +106,7 @@ export default function Hero() {
             </motion.p>
           </AnimatePresence>
 
-          <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.15, duration: 0.7 }} className="mt-8 flex flex-wrap gap-3">
+          <motion.div initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1, duration: 0.7 }} className="mt-8 flex flex-wrap gap-3">
             <a href="#cta" className="group inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 font-medium text-slate-900 transition hover:bg-emerald-400 hover:shadow-[0_0_40px_rgba(16,185,129,0.45)]">
               Get Started
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -115,18 +117,20 @@ export default function Hero() {
             </a>
           </motion.div>
 
-          {/* Speed control micro-interaction */}
-          <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.25 }} className="mt-6 inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-900/60 p-1 text-sm text-slate-300">
-            <span className="px-2 text-xs text-emerald-300">Motion</span>
-            <button onClick={() => setSpeed('calm')} className={`flex items-center gap-1 rounded-full px-3 py-1 transition ${speed==='calm' ? 'bg-emerald-500 text-slate-900' : 'hover:bg-slate-800/60'}`}>
-              <Turtle className="h-4 w-4" /> Calm
-            </button>
-            <button onClick={() => setSpeed('normal')} className={`flex items-center gap-1 rounded-full px-3 py-1 transition ${speed==='normal' ? 'bg-emerald-500 text-slate-900' : 'hover:bg-slate-800/60'}`}>
-              <Gauge className="h-4 w-4" /> Normal
-            </button>
-            <button onClick={() => setSpeed('fast')} className={`flex items-center gap-1 rounded-full px-3 py-1 transition ${speed==='fast' ? 'bg-emerald-500 text-slate-900' : 'hover:bg-slate-800/60'}`}>
-              <Zap className="h-4 w-4" /> Fast
-            </button>
+          {/* Tier segmented control (moved here, replacing motion control) */}
+          <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="mt-6 inline-flex items-center gap-1 rounded-2xl border border-emerald-500/30 bg-slate-900/70 p-1 text-sm backdrop-blur">
+            {tiers.map((t) => (
+              <button
+                key={t}
+                onClick={() => setTier(t)}
+                className={`group flex items-center gap-2 rounded-xl px-3.5 py-2 transition ${tier===t? 'bg-emerald-500 text-slate-900 shadow-[0_0_30px_rgba(16,185,129,0.45)]':'text-slate-300 hover:bg-slate-800/70'}`}
+              >
+                {t==='small' && <Users className="h-4 w-4"/>}
+                {t==='medium' && <Building className="h-4 w-4"/>}
+                {t==='enterprise' && <Building2 className="h-4 w-4"/>}
+                <span>{tierCopy[t].label}</span>
+              </button>
+            ))}
           </motion.div>
 
           {/* Impact HUD that swaps per tier */}
@@ -145,7 +149,7 @@ export default function Hero() {
           <div className="mt-8 grid grid-cols-2 gap-4 text-sm text-slate-400 sm:max-w-lg">
             {[
               'Swarm agent orchestration',
-              'Parallax + live motion control',
+              'Parallax depth, tuned speed',
               'Emerald accents, elevated',
               'Designed for teams of all sizes',
             ].map((t, i) => (
